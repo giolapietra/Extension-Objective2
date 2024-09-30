@@ -5,10 +5,13 @@ import {
     eventSource,
     event_types,
     generateQuietPrompt,
+    animation_duration
 } from '../../../../script.js';
 import { registerSlashCommand } from '../../../slash-commands.js';
 import { waitUntilCondition } from '../../../utils.js';
 import { is_group_generating, selected_group } from '../../../group-chats.js';
+import { dragElement } from '../../../../scripts/RossAscends-mods.js';
+import { loadMovingUIState } from '../../../../scripts/power-user.js';
 
 const MODULE_NAME = 'Objective';
 
@@ -798,45 +801,99 @@ function addManualTaskCheckUi() {
     $('#objective-task-complete-current-menu-item').attr('title', 'Mark the current task as completed.').on('click', markTaskCompleted);
 }
 
+function doPopout(e) {
+    const target = e.target;
+
+    //repurposes the zoomed avatar template to server as a floating div
+    if ($('#objectiveExtensionPopout').length === 0) {
+        console.debug('did not see popout yet, creating');
+        const originalHTMLClone = $(target).parent().parent().parent().find('.inline-drawer-content').html();
+        const originalElement = $(target).parent().parent().parent().find('.inline-drawer-content');
+        const template = $('#zoomed_avatar_template').html();
+        const controlBarHtml = `<div class="panelControlBar flex-container">
+        <div id="objectiveExtensionPopoutheader" class="fa-solid fa-grip drag-grabber hoverglow"></div>
+        <div id="objectiveExtensionPopoutClose" class="fa-solid fa-circle-xmark hoverglow dragClose"></div>
+    </div>`;
+        const newElement = $(template);
+        newElement.attr('id', 'objectiveExtensionPopout')
+            .removeClass('zoomed_avatar')
+            .addClass('draggable')
+            .empty();
+        const prevObjectiveBoxContents = $('#objective_contents').val(); //copy summary box before emptying
+        originalElement.empty();
+        originalElement.html('<div class="flex-container alignitemscenter justifyCenter wide100p"><small>Currently popped out</small></div>');
+        newElement.append(controlBarHtml).append(originalHTMLClone);
+        $('body').append(newElement);
+        $('#objectiveExtensionDrawerContents').addClass('scrollableInnerFull');
+        // setMemoryContext(prevSummaryBoxContents, false); //paste prev summary box contents into popout box
+        // setupListeners();
+        loadSettings();
+        loadMovingUIState();
+
+        $('#objectiveExtensionPopout').fadeIn(animation_duration);
+        dragElement(newElement);
+
+        //setup listener for close button to restore extensions menu
+        $('#objectiveExtensionPopoutClose').off('click').on('click', function () {
+            $('#objectiveExtensionDrawerContents').removeClass('scrollableInnerFull');
+            const objectivePopoutHTML = $('#objectiveExtensionDrawerContents');
+            $('#objectiveExtensionPopout').fadeOut(animation_duration, () => {
+                originalElement.empty();
+                originalElement.html(objectivePopoutHTML);
+                $('#objectiveExtensionPopout').remove();
+            });
+            loadSettings();
+        });
+    } else {
+        console.debug('saw existing popout, removing');
+        $('#objectiveExtensionPopout').fadeOut(animation_duration, () => { $('#objectiveExtensionPopoutClose').trigger('click'); });
+    }
+}
+
 jQuery(() => {
     const settingsHtml = `
-    <div class="objective-settings">
+    <div id="objective_contents" class="objective-settings">
         <div class="inline-drawer">
             <div class="inline-drawer-toggle inline-drawer-header">
-                <b>Objective</b>
+                <div class="flex-container alignitemscenter margin0">
+                    <b data-i18n="ext_obj_title">Objective</b>
+                    <i id="objectiveExtensionPopoutButton" class="fa-solid fa-window-restore menu_button margin0"></i>
+                </div>
                 <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
             </div>
             <div class="inline-drawer-content">
-                <label for="objective-text"><small>Enter an objective and generate tasks. The AI will attempt to complete tasks autonomously</small></label>
-                <textarea id="objective-text" type="text" class="text_pole textarea_compact" rows="4"></textarea>
-                <div class="objective_block flex-container">
-                    <input id="objective-generate" class="menu_button" type="submit" value="Auto-Generate Tasks" />
-                    <label class="checkbox_label"><input id="objective-hide-tasks" type="checkbox"> Hide Tasks</label>
-                </div>
-                <div id="objective-parent" class="objective_block flex-container">
-                    <i class="objective-task-button fa-solid fa-circle-left fa-2x" title="Go to Parent"></i>
-                    <small>Go to parent task</small>
-                </div>
-
-                <div id="objective-tasks"> </div>
-                <div class="objective_block margin-bot-10px">
-                    <div class="objective_block objective_block_control flex1 flexFlowColumn">
-                        <label for="objective-chat-depth">Position in Chat</label>
-                        <input id="objective-chat-depth" class="text_pole widthUnset" type="number" min="0" max="99" />
+                <div id="objectiveExtensionDrawerContents">
+                    <label for="objective-text"><small>Enter an objective and generate tasks. The AI will attempt to complete tasks autonomously</small></label>
+                    <textarea id="objective-text" type="text" class="text_pole textarea_compact" rows="4"></textarea>
+                    <div class="objective_block flex-container">
+                        <input id="objective-generate" class="menu_button" type="submit" value="Auto-Generate Tasks" />
+                        <label class="checkbox_label"><input id="objective-hide-tasks" type="checkbox"> Hide Tasks</label>
                     </div>
-                    <br>
-                    <div class="objective_block objective_block_control flex1">
-
-                        <label for="objective-check-frequency">Task Check Frequency</label>
-                        <input id="objective-check-frequency" class="text_pole widthUnset" type="number" min="0" max="99" />
-                        <small>(0 = disabled)</small>
+                    <div id="objective-parent" class="objective_block flex-container">
+                        <i class="objective-task-button fa-solid fa-circle-left fa-2x" title="Go to Parent"></i>
+                        <small>Go to parent task</small>
                     </div>
+
+                    <div id="objective-tasks"> </div>
+                    <div class="objective_block margin-bot-10px">
+                        <div class="objective_block objective_block_control flex1 flexFlowColumn">
+                            <label for="objective-chat-depth">Position in Chat</label>
+                            <input id="objective-chat-depth" class="text_pole widthUnset" type="number" min="0" max="99" />
+                        </div>
+                        <br>
+                        <div class="objective_block objective_block_control flex1">
+
+                            <label for="objective-check-frequency">Task Check Frequency</label>
+                            <input id="objective-check-frequency" class="text_pole widthUnset" type="number" min="0" max="99" />
+                            <small>(0 = disabled)</small>
+                        </div>
+                    </div>
+                    <span> Messages until next AI task completion check <span id="objective-counter">0</span></span>
+                    <div class="objective_block flex-container">
+                        <input id="objective_prompt_edit" class="menu_button" type="submit" value="Edit Prompts" />
+                    </div>
+                    <hr class="sysHR">
                 </div>
-                <span> Messages until next AI task completion check <span id="objective-counter">0</span></span>
-                <div class="objective_block flex-container">
-                    <input id="objective_prompt_edit" class="menu_button" type="submit" value="Edit Prompts" />
-                </div>
-                <hr class="sysHR">
             </div>
         </div>
     </div>
@@ -853,6 +910,10 @@ jQuery(() => {
     $('#objective-parent').hide();
     $('#objective-parent').on('click', onParentClick);
     $('#objective-text').on('focusout', onObjectiveTextFocusOut);
+    $('#objectiveExtensionPopoutButton').off('click').on('click', function (e) {
+        doPopout(e);
+        e.stopPropagation();
+    });
     loadSettings();
 
     eventSource.on(event_types.CHAT_CHANGED, () => {

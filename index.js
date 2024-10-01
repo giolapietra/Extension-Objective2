@@ -59,16 +59,11 @@ function getTaskByIdRecurse(taskId, task) {
 }
 
 function substituteParamsPrompts(content, substituteGlobal) {
+    content = content.replace(/{{objective}}/gi, currentObjective?.description ?? '');
+    content = content.replace(/{{task}}/gi, currentTask?.description ?? '');
+    content = content.replace(/{{parent}}/gi, currentTask?.parent?.description ?? '');
     if (substituteGlobal) {
         content = substituteParams(content);
-    }
-    if (!currentObjective || !currentTask) {
-        return content;
-    }
-    content = content.replace(/{{objective}}/gi, currentObjective.description);
-    content = content.replace(/{{task}}/gi, currentTask.description);
-    if (currentTask.parent) {
-        content = content.replace(/{{parent}}/gi, currentTask.parent.description);
     }
     return content;
 }

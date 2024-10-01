@@ -50,3 +50,11 @@
     margin: unset;
     margin-bottom: 5px !important;
 }
+
+#objectiveExtensionPopout {
+    top: unset;
+}
+
+#objectiveExtensionPopout #objectiveExtensionDrawerContents {
+    margin-top: 20px;
+}
